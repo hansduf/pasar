@@ -68,6 +68,11 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('product-images', 'product-images', true)
 ON CONFLICT (id) DO NOTHING;
 
+-- Drop existing policies if re-running script to avoid ERROR 42710
+DROP POLICY IF EXISTS "Public Read Access" ON storage.objects;
+DROP POLICY IF EXISTS "Public Upload Access" ON storage.objects;
+DROP POLICY IF EXISTS "Public Manage Access" ON storage.objects;
+
 -- Public Storage Policy (Allow Anyone to Read/Download)
 CREATE POLICY "Public Read Access" 
 ON storage.objects FOR SELECT 
