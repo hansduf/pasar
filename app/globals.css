@@ -143,12 +143,17 @@ body {
 }
 
 .tab-btn .badge-count {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--color-primary); /* Solid Orange for unselected tab */
   color: #ffffff;
   font-size: 10px;
   padding: 1px 6px;
   border-radius: var(--radius-full);
   font-weight: 900;
+}
+
+.tab-btn.active .badge-count {
+  background: #ffffff;
+  color: var(--color-primary); /* White badge with orange text for active tab */
 }
 
 /* Search Bar, Filters & View Mode Switcher */
