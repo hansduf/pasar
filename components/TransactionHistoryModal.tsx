@@ -190,6 +190,26 @@ export default function TransactionHistoryModal({
                           </span>
                         </div>
                       ))}
+
+                      {tx.cash_received && tx.cash_received > 0 && (
+                        <div
+                          style={{
+                            marginTop: '6px',
+                            paddingTop: '6px',
+                            borderTop: '1px dashed #cbd5e1',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontSize: '11px',
+                            fontWeight: '700',
+                            color: 'var(--text-muted)',
+                          }}
+                        >
+                          <span>💵 Uang Diterima: Rp {tx.cash_received.toLocaleString('id-ID')}</span>
+                          <span style={{ color: 'var(--color-primary-hover)', fontWeight: '800' }}>
+                            Kembalian: Rp {(tx.change_amount || 0).toLocaleString('id-ID')}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

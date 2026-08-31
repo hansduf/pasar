@@ -33,15 +33,25 @@ export default function MultiCartDrawer({
 
   const totalAmount = cart.items.reduce((sum, item) => sum + item.subtotal, 0);
 
-  // Cash received & Change calculator state
+  // Cash received & Change calculator state with dot formatting (e.g. 50.000)
   const [cashInput, setCashInput] = useState<string>(totalAmount.toString());
 
   useEffect(() => {
     setCashInput(totalAmount.toString());
   }, [totalAmount, isOpen]);
 
-  const cashReceived = parseFloat(cashInput) || 0;
+  // Clean raw digits for calculation
+  const rawCashDigits = String(cashInput).replace(/\D/g, '');
+  const cashReceived = parseFloat(rawCashDigits) || 0;
   const changeAmount = Math.max(0, cashReceived - totalAmount);
+
+  // Formatted string display with dots (e.g. "50.000")
+  const displayCashFormatted = cashReceived > 0 ? cashReceived.toLocaleString('id-ID') : '';
+
+  const handleCashInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleanDigits = e.target.value.replace(/\D/g, '');
+    setCashInput(cleanDigits);
+  };
 
   const handleCheckoutClick = () => {
     if (cashReceived < totalAmount) {
@@ -250,11 +260,12 @@ export default function MultiCartDrawer({
                 <div>
                   <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Uang Diterima (Rp):</span>
                   <input
-                    type="number"
+                    type="text"
                     className="form-control"
                     style={{ fontSize: '17px', fontWeight: '800', padding: '8px 10px', color: 'var(--color-secondary)' }}
-                    value={cashInput}
-                    onChange={(e) => setCashInput(e.target.value)}
+                    placeholder="0"
+                    value={displayCashFormatted}
+                    onChange={handleCashInputChange}
                   />
                 </div>
 

@@ -272,9 +272,15 @@ export default function SalesReportView({
                     <div style={{ fontSize: '14px', fontWeight: '900', color: 'var(--color-primary)' }}>
                       Rp {tx.total_amount.toLocaleString('id-ID')}
                     </div>
-                    <span style={{ fontSize: '10px', background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>
-                      Lunas ({tx.payment_method || 'Tunai'})
-                    </span>
+                    {tx.cash_received && tx.cash_received > 0 ? (
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700' }}>
+                        Bayar: Rp {tx.cash_received.toLocaleString('id-ID')} • Kembalian: Rp {(tx.change_amount || 0).toLocaleString('id-ID')}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '10px', background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>
+                        Lunas ({tx.payment_method || 'Tunai'})
+                      </span>
+                    )}
                   </div>
                 </div>
 
