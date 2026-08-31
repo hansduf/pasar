@@ -257,3 +257,69 @@ EXCEPTION WHEN OTHERS THEN
     );
 END;
 $$;
+
+-- RPC 5: Update Full Product Details & Multi-Satuan Units
+CREATE OR REPLACE FUNCTION public.update_product_full(
+    p_product_id UUID,
+    p_name TEXT,
+    p_category TEXT,
+    p_image_url TEXT,
+    p_is_bulk BOOLEAN,
+    p_buy_qty INT,
+    p_get_qty INT,
+    p_promo_info TEXT,
+    p_units JSONB
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_unit_elem JSONB;
+BEGIN
+    UPDATE public.products
+    SET name = p_name,
+        category = COALESCE(NULLIF(p_category, ''), 'Umum'),
+        image_url = p_image_url,
+        is_bulk = COALESCE(p_is_bulk, FALSE),
+        promo_buy_qty = COALESCE(p_buy_qty, 0),
+        promo_get_qty = COALESCE(p_get_qty, 0),
+        promo_info = p_promo_info,
+        updated_at = NOW()
+    WHERE id = p_product_id;
+
+    -- Delete existing units and re-insert updated multi-tier units
+    DELETE FROM public.product_units WHERE product_id = p_product_id;
+
+    FOR v_unit_elem IN SELECT * FROM jsonb_array_elements(p_units)
+    LOOP
+        INSERT INTO public.product_units (
+            product_id, unit_name, price, conversion_factor, is_default
+        ) VALUES (
+            p_product_id,
+            v_unit_elem->>'unit_name',
+            (v_unit_elem->>'price')::NUMERIC,
+            COALESCE((v_unit_elem->>'conversion_factor')::NUMERIC, 1),
+            COALESCE((v_unit_elem->>'is_default')::BOOLEAN, FALSE)
+        );
+    END LOOP;
+
+    RETURN jsonb_build_object('success', true);
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;
+
+-- RPC 6: Delete Product and Multi-Satuan Units
+CREATE OR REPLACE FUNCTION public.delete_product(
+    p_product_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    DELETE FROM public.products WHERE id = p_product_id;
+    RETURN jsonb_build_object('success', true);
+EXCEPTION WHEN OTHERS THEN
+    RETURN jsonb_build_object('success', false, 'error', SQLERRM);
+END;
+$$;

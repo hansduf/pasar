@@ -57,6 +57,7 @@ export default function POSDashboard() {
 
   // Modals state
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingPriceProduct, setEditingPriceProduct] = useState<Product | null>(null);
   const [bulkProduct, setBulkProduct] = useState<Product | null>(null);
   const [customPriceCartItem, setCustomPriceCartItem] = useState<CartItem | null>(null);
@@ -315,6 +316,18 @@ export default function POSDashboard() {
     setProducts([newProd, ...products]);
   };
 
+  // Product Updated Handler (Multi-Satuan & Photo Update)
+  const handleProductUpdated = (updatedProd: Product) => {
+    setProducts((prev) => prev.map((p) => (p.id === updatedProd.id ? updatedProd : p)));
+    setEditingProduct(null);
+  };
+
+  // Product Deleted Handler
+  const handleProductDeleted = (productId: string) => {
+    setProducts((prev) => prev.filter((p) => p.id !== productId));
+    setEditingProduct(null);
+  };
+
   // Feature 1: Edit Weight from cart line item
   const handleEditWeightFromCart = (item: CartItem) => {
     const matchedProduct = products.find((p) => p.id === item.product_id);
@@ -509,12 +522,12 @@ export default function POSDashboard() {
                   </div>
                 )}
 
-                {/* 1-Tap Quick Price Edit Button ✏️ */}
+                {/* Edit Barang & Multi-Satuan Button ✏️ */}
                 <button
                   type="button"
-                  title="Update Harga Cepat"
+                  title="Edit Barang & Multi-Satuan"
                   className="quick-edit-price-btn"
-                  onClick={() => setEditingPriceProduct(prod)}
+                  onClick={() => setEditingProduct(prod)}
                 >
                   <Edit2 size={15} />
                 </button>
@@ -581,10 +594,10 @@ export default function POSDashboard() {
                     )}
                     <button
                       type="button"
-                      onClick={() => setEditingPriceProduct(prod)}
-                      style={{ background: 'none', border: 'none', color: 'var(--color-accent)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '12px', fontWeight: '700' }}
+                      onClick={() => setEditingProduct(prod)}
+                      style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '12px', fontWeight: '800' }}
                     >
-                      <Edit2 size={13} /> Edit Harga
+                      <Edit2 size={13} /> Edit Barang & Multi-Satuan
                     </button>
                   </div>
                 </div>
@@ -650,9 +663,15 @@ export default function POSDashboard() {
 
       {/* 6. Modals */}
       <AddProductModal
-        isOpen={isAddProductOpen}
-        onClose={() => setIsAddProductOpen(false)}
+        isOpen={isAddProductOpen || !!editingProduct}
+        initialProduct={editingProduct}
+        onClose={() => {
+          setIsAddProductOpen(false);
+          setEditingProduct(null);
+        }}
         onProductCreated={handleProductCreated}
+        onProductUpdated={handleProductUpdated}
+        onProductDeleted={handleProductDeleted}
       />
 
       <QuickPriceEditModal
