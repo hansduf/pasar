@@ -36,10 +36,12 @@ import ReceiptModal from '../components/ReceiptModal';
 import TransactionHistoryModal from '../components/TransactionHistoryModal';
 
 export default function POSDashboard() {
-  // Products & Categories
-  const [products, setProducts] = useState<Product[]>(INITIAL_MOCK_PRODUCTS);
+  // Products & Categories (Pure Supabase DB State)
+  const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Semua');
+  const [dbStatus, setDbStatus] = useState<'CHECKING' | 'CONNECTED' | 'OFFLINE'>('CHECKING');
+  const [dbError, setDbError] = useState<string | null>(null);
 
   // View Mode: GRID vs LIST (File Manager Style)
   const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
@@ -79,10 +81,7 @@ export default function POSDashboard() {
       try {
         const parsed = JSON.parse(savedProds);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Merge missing initial mock products if not present
-          const existingIds = new Set(parsed.map((p: Product) => p.id));
-          const missingMocks = INITIAL_MOCK_PRODUCTS.filter((m) => !existingIds.has(m.id));
-          setProducts([...parsed, ...missingMocks]);
+          setProducts(parsed);
         }
       } catch (e) {}
     }
@@ -94,7 +93,6 @@ export default function POSDashboard() {
       } catch (e) {}
     }
 
-    // Attempt Supabase fetch if available
     fetchProductsFromSupabase();
   }, []);
 
@@ -108,52 +106,34 @@ export default function POSDashboard() {
     localStorage.setItem('pasar_pos_products', JSON.stringify(products));
   }, [products]);
 
-  const [dbStatus, setDbStatus] = useState<'CHECKING' | 'CONNECTED' | 'OFFLINE'>('CHECKING');
-
-  // Load / Sync from LocalStorage or Supabase
+  // Save transactions to localStorage
   useEffect(() => {
-    const savedCarts = localStorage.getItem('pasar_pos_carts');
-    if (savedCarts) {
-      try {
-        setCarts(JSON.parse(savedCarts));
-      } catch (e) {}
-    }
-
-    const savedProds = localStorage.getItem('pasar_pos_products');
-    if (savedProds) {
-      try {
-        const parsed = JSON.parse(savedProds);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const existingIds = new Set(parsed.map((p: Product) => p.id));
-          const missingMocks = INITIAL_MOCK_PRODUCTS.filter((m) => !existingIds.has(m.id));
-          setProducts([...parsed, ...missingMocks]);
-        }
-      } catch (e) {}
-    }
-
-    const savedTx = localStorage.getItem('pasar_pos_transactions');
-    if (savedTx) {
-      try {
-        setTransactions(JSON.parse(savedTx));
-      } catch (e) {}
-    }
-
-    fetchProductsFromSupabase();
-  }, []);
+    localStorage.setItem('pasar_pos_transactions', JSON.stringify(transactions));
+  }, [transactions]);
 
   const fetchProductsFromSupabase = async () => {
+    setDbStatus('CHECKING');
+    setDbError(null);
     try {
       const { data, error } = await supabase.rpc('get_products_with_units', {
         search_query: '',
         category_filter: 'Semua',
       });
-      if (!error && data && Array.isArray(data) && data.length > 0) {
-        setProducts(data);
-        setDbStatus('CONNECTED');
-      } else {
+
+      if (error) {
+        console.warn('Supabase fetch error:', error);
+        setDbError(error.message || 'Gagal memuat data dari Supabase');
         setDbStatus('OFFLINE');
+      } else {
+        if (Array.isArray(data)) {
+          setProducts(data);
+          localStorage.setItem('pasar_pos_products', JSON.stringify(data));
+        }
+        setDbStatus('CONNECTED');
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.warn('Supabase connection catch:', err);
+      setDbError(err?.message || 'Koneksi ke Supabase terputus');
       setDbStatus('OFFLINE');
     }
   };
@@ -470,14 +450,53 @@ export default function POSDashboard() {
             </div>
           </div>
 
-          <button
-            onClick={() => setIsHistoryOpen(true)}
-            className="btn btn-secondary"
-            style={{ padding: '8px 12px', fontSize: '13px', borderRadius: '10px' }}
-          >
-            <History size={16} /> Riwayat ({transactions.length})
-          </button>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <button
+              type="button"
+              onClick={fetchProductsFromSupabase}
+              className="btn btn-secondary"
+              style={{ padding: '6px 10px', fontSize: '11px', borderRadius: '8px' }}
+              title="Cek & Sync Koneksi Supabase"
+            >
+              🔄 {dbStatus === 'CHECKING' ? 'Mengecek...' : 'Tes DB'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsHistoryOpen(true)}
+              className="btn btn-secondary"
+              style={{ padding: '6px 10px', fontSize: '12px', borderRadius: '8px' }}
+            >
+              <History size={15} /> ({transactions.length})
+            </button>
+          </div>
         </div>
+
+        {/* Supabase Error Banner if disconnected */}
+        {dbError && (
+          <div
+            style={{
+              background: '#fef2f2',
+              border: '1px solid #fca5a5',
+              padding: '6px 10px',
+              borderRadius: '8px',
+              marginBottom: '8px',
+              fontSize: '11px',
+              color: '#991b1b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span>⚠️ Supabase: {dbError}</span>
+            <button
+              type="button"
+              onClick={fetchProductsFromSupabase}
+              style={{ background: 'none', border: 'none', color: '#dc2626', fontWeight: 800, cursor: 'pointer', fontSize: '11px' }}
+            >
+              Coba Lagi
+            </button>
+          </div>
+        )}
 
         {/* Tab Nota Switcher */}
         <div className="tab-switcher">
