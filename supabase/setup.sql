@@ -113,27 +113,29 @@ BEGIN
             'promo_buy_qty', p.promo_buy_qty,
             'promo_get_qty', p.promo_get_qty,
             'promo_info', p.promo_info,
-            'units', (
-                SELECT jsonb_agg(
-                    jsonb_build_object(
-                        'id', u.id,
-                        'unit_name', u.unit_name,
-                        'price', u.price,
-                        'conversion_factor', u.conversion_factor,
-                        'is_default', u.is_default
-                    ) ORDER BY u.price ASC
-                )
-                FROM public.product_units u
-                WHERE u.product_id = p.id
+            'units', COALESCE(
+                (
+                    SELECT jsonb_agg(
+                        jsonb_build_object(
+                            'id', u.id,
+                            'unit_name', u.unit_name,
+                            'price', u.price,
+                            'conversion_factor', u.conversion_factor,
+                            'is_default', u.is_default
+                        ) ORDER BY u.price ASC
+                    )
+                    FROM public.product_units u
+                    WHERE u.product_id = p.id
+                ),
+                '[]'::jsonb
             )
-        )
+        ) ORDER BY p.name ASC
     )
     INTO result
     FROM public.products p
     WHERE 
         (search_query = '' OR p.name ILIKE '%' || search_query || '%' OR p.category ILIKE '%' || search_query || '%')
-        AND (category_filter = '' OR category_filter = 'Semua' OR p.category = category_filter)
-    ORDER BY p.name ASC;
+        AND (category_filter = '' OR category_filter = 'Semua' OR p.category = category_filter);
 
     RETURN COALESCE(result, '[]'::jsonb);
 END;
