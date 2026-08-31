@@ -325,18 +325,27 @@ export default function POSDashboard() {
   // Product Created Handler
   const handleProductCreated = (newProd: Product) => {
     setProducts([newProd, ...products]);
+    setTimeout(() => {
+      fetchProductsFromSupabase();
+    }, 500);
   };
 
   // Product Updated Handler (Multi-Satuan & Photo Update)
   const handleProductUpdated = (updatedProd: Product) => {
     setProducts((prev) => prev.map((p) => (p.id === updatedProd.id ? updatedProd : p)));
     setEditingProduct(null);
+    setTimeout(() => {
+      fetchProductsFromSupabase();
+    }, 500);
   };
 
   // Product Deleted Handler
   const handleProductDeleted = (productId: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== productId));
     setEditingProduct(null);
+    setTimeout(() => {
+      fetchProductsFromSupabase();
+    }, 500);
   };
 
   // Feature 1: Edit Weight from cart line item

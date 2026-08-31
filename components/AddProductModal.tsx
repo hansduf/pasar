@@ -284,7 +284,7 @@ export default function AddProductModal({
 
       // Call Supabase RPC
       try {
-        await supabase.rpc('update_product_full', {
+        const { data, error } = await supabase.rpc('update_product_full', {
           p_product_id: initialProduct.id,
           p_name: name,
           p_category: category,
@@ -295,8 +295,14 @@ export default function AddProductModal({
           p_promo_info: promoText,
           p_units: parsedUnits,
         });
-      } catch (e) {
-        console.warn('RPC update fallback:', e);
+
+        if (error) {
+          alert(`❌ Gagal update ke Supabase: ${error.message}`);
+        } else if (data && data.success === false) {
+          alert(`❌ Gagal update ke Supabase: ${data.error}`);
+        }
+      } catch (e: any) {
+        console.warn('RPC update warning:', e);
       }
 
       if (onProductUpdated) {
@@ -304,21 +310,11 @@ export default function AddProductModal({
       }
     } else {
       // CREATE MODE
-      const newProd = {
-        id: `prod-${Date.now()}`,
-        name,
-        category,
-        image_url: imageUrl,
-        is_bulk: isBulk,
-        promo_buy_qty: buyQty,
-        promo_get_qty: getQty,
-        promo_info: promoText,
-        units: parsedUnits,
-      };
+      let newProductId = `prod-${Date.now()}`;
 
       // Call Supabase RPC
       try {
-        await supabase.rpc('create_product_with_units', {
+        const { data, error } = await supabase.rpc('create_product_with_units', {
           p_name: name,
           p_category: category,
           p_image_url: imageUrl,
@@ -328,9 +324,29 @@ export default function AddProductModal({
           p_promo_info: promoText,
           p_units: parsedUnits,
         });
-      } catch (e) {
-        console.warn('RPC create fallback:', e);
+
+        if (error) {
+          alert(`❌ Gagal menyimpan ke Supabase: ${error.message}`);
+        } else if (data && data.success === false) {
+          alert(`❌ Gagal menyimpan ke Supabase: ${data.error}`);
+        } else if (data && data.product_id) {
+          newProductId = data.product_id;
+        }
+      } catch (e: any) {
+        console.warn('RPC create warning:', e);
       }
+
+      const newProd = {
+        id: newProductId,
+        name,
+        category,
+        image_url: imageUrl,
+        is_bulk: isBulk,
+        promo_buy_qty: buyQty,
+        promo_get_qty: getQty,
+        promo_info: promoText,
+        units: parsedUnits,
+      };
 
       onProductCreated(newProd);
     }
