@@ -47,10 +47,11 @@ CREATE TABLE IF NOT EXISTS public.transactions (
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS cash_received NUMERIC(12, 2) DEFAULT 0;
 ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS change_amount NUMERIC(12, 2) DEFAULT 0;
 
--- 5. Transaction Items Table (Detail Barang Terjual)
+-- 5. Transaction Items Table (Detail Barang Terjual Relational Linked to Products)
 CREATE TABLE IF NOT EXISTS public.transaction_items (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     transaction_id UUID NOT NULL REFERENCES public.transactions(id) ON DELETE CASCADE,
+    product_id UUID REFERENCES public.products(id) ON DELETE SET NULL,
     product_name TEXT NOT NULL,
     unit_name TEXT NOT NULL,
     price NUMERIC(12, 2) NOT NULL DEFAULT 0,
@@ -62,11 +63,14 @@ CREATE TABLE IF NOT EXISTS public.transaction_items (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 6. Indexes for Lightning Fast Search
+ALTER TABLE public.transaction_items ADD COLUMN IF NOT EXISTS product_id UUID REFERENCES public.products(id) ON DELETE SET NULL;
+
+-- 6. Indexes for Lightning Fast Search & Joins
 CREATE INDEX IF NOT EXISTS idx_products_name ON public.products (name);
 CREATE INDEX IF NOT EXISTS idx_products_category ON public.products (category);
 CREATE INDEX IF NOT EXISTS idx_product_units_product ON public.product_units (product_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON public.transactions (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transaction_items_product ON public.transaction_items (product_id);
 
 -- 7. Enable RLS and add Full Public Access Policies (Fix "new row violates row-level security policy")
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
@@ -268,9 +272,10 @@ BEGIN
     FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
     LOOP
         INSERT INTO public.transaction_items (
-            transaction_id, product_name, unit_name, price, qty, discount_amount, is_bonus, subtotal, notes
+            transaction_id, product_id, product_name, unit_name, price, qty, discount_amount, is_bonus, subtotal, notes
         ) VALUES (
             v_transaction_id,
+            CASE WHEN (v_item->>'product_id') ~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN (v_item->>'product_id')::UUID ELSE NULL END,
             v_item->>'product_name',
             v_item->>'unit_name',
             (v_item->>'price')::NUMERIC,
