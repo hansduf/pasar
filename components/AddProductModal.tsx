@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Camera, Plus, Trash2, Check, Sparkles, Scale, AlertTriangle } from 'lucide-react';
+import { X, Camera, Plus, Trash2, Check, Sparkles, Scale, AlertTriangle, RefreshCw } from 'lucide-react';
 import { compressImage } from '../lib/imageCompressor';
 import { supabase } from '../lib/supabase';
 
@@ -51,36 +51,70 @@ export default function AddProductModal({
   const [isUploading, setIsUploading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Weight Tiers (50g, 100g, 250g, 500g, 1kg) for Bulk/Weighted items
+  const [price1Kg, setPrice1Kg] = useState('44000');
+  const [price500g, setPrice500g] = useState('23000');
+  const [price250g, setPrice250g] = useState('12000');
+  const [price100g, setPrice100g] = useState('5000');
+  const [price50g, setPrice50g] = useState('3000');
+
   // Promo Setup
   const [promoBuyQty, setPromoBuyQty] = useState('0');
   const [promoGetQty, setPromoGetQty] = useState('0');
   const [promoInfo, setPromoInfo] = useState('');
 
-  // Units setup
+  // Standard Multi-Units setup (for non-bulk items)
   const [units, setUnits] = useState<UnitFormInput[]>([
     { unit_name: 'Pcs', price: '5000', conversion_factor: '1' },
   ]);
+
+  // Auto-calculate proportional weight tier prices from 1kg base price
+  const handleAutoCalcWeightTiers = (baseKgStr: string) => {
+    const baseKg = parseFloat(baseKgStr) || 0;
+    setPrice1Kg(baseKgStr);
+    setPrice500g(String(Math.round(baseKg * 0.5)));
+    setPrice250g(String(Math.round(baseKg * 0.25)));
+    setPrice100g(String(Math.round(baseKg * 0.1)));
+    setPrice50g(String(Math.round(baseKg * 0.05)));
+  };
 
   // Load initial product if editing
   useEffect(() => {
     if (initialProduct) {
       setName(initialProduct.name || '');
       setCategory(initialProduct.category || 'Bumbu & Bahan Dapur');
-      setIsBulk(!!initialProduct.is_bulk);
+      const isBulkProd = !!initialProduct.is_bulk;
+      setIsBulk(isBulkProd);
       setImagePreview(initialProduct.image_url || null);
       setPromoBuyQty(initialProduct.promo_buy_qty ? String(initialProduct.promo_buy_qty) : '0');
       setPromoGetQty(initialProduct.promo_get_qty ? String(initialProduct.promo_get_qty) : '0');
       setPromoInfo(initialProduct.promo_info || '');
 
       if (initialProduct.units && initialProduct.units.length > 0) {
-        setUnits(
-          initialProduct.units.map((u: any) => ({
-            id: u.id,
-            unit_name: u.unit_name,
-            price: String(u.price),
-            conversion_factor: String(u.conversion_factor || 1),
-          }))
-        );
+        if (isBulkProd) {
+          // Find matching weight tiers from product units if available
+          const u1Kg = initialProduct.units.find((u: any) => u.unit_name === '1 Kg' || u.unit_name === 'Kg');
+          const u500 = initialProduct.units.find((u: any) => u.unit_name === '500g');
+          const u250 = initialProduct.units.find((u: any) => u.unit_name === '250g');
+          const u100 = initialProduct.units.find((u: any) => u.unit_name === '100g');
+          const u50 = initialProduct.units.find((u: any) => u.unit_name === '50g');
+
+          const baseKg = u1Kg?.price || 44000;
+          setPrice1Kg(String(baseKg));
+          setPrice500g(String(u500?.price || Math.round(baseKg * 0.5)));
+          setPrice250g(String(u250?.price || Math.round(baseKg * 0.25)));
+          setPrice100g(String(u100?.price || Math.round(baseKg * 0.1)));
+          setPrice50g(String(u50?.price || Math.round(baseKg * 0.05)));
+        } else {
+          setUnits(
+            initialProduct.units.map((u: any) => ({
+              id: u.id,
+              unit_name: u.unit_name,
+              price: String(u.price),
+              conversion_factor: String(u.conversion_factor || 1),
+            }))
+          );
+        }
       }
     } else {
       // Default reset
@@ -92,6 +126,11 @@ export default function AddProductModal({
       setPromoBuyQty('0');
       setPromoGetQty('0');
       setPromoInfo('');
+      setPrice1Kg('44000');
+      setPrice500g('23000');
+      setPrice250g('12000');
+      setPrice100g('5000');
+      setPrice50g('3000');
       setUnits([
         { unit_name: 'Pcs', price: '5000', conversion_factor: '1' },
         { unit_name: 'Renceng', price: '48000', conversion_factor: '10' },
@@ -114,8 +153,8 @@ export default function AddProductModal({
   };
 
   const handleAddUnitRow = (customUnitName?: string) => {
-    const defaultName = customUnitName || (isBulk ? 'Gram' : 'Dus');
-    const defaultPrice = isBulk ? '9000' : '120000';
+    const defaultName = customUnitName || 'Dus';
+    const defaultPrice = '120000';
     setUnits([...units, { unit_name: defaultName, price: defaultPrice, conversion_factor: '1' }]);
   };
 
@@ -195,10 +234,30 @@ export default function AddProductModal({
     const parsedUnits = isBulk
       ? [
           {
-            unit_name: 'Kg',
-            price: parseFloat(units[0]?.price || '44000'),
-            conversion_factor: 1,
+            unit_name: '1 Kg',
+            price: parseFloat(price1Kg) || 44000,
+            conversion_factor: 1000,
             is_default: true,
+          },
+          {
+            unit_name: '500g',
+            price: parseFloat(price500g) || 23000,
+            conversion_factor: 500,
+          },
+          {
+            unit_name: '250g',
+            price: parseFloat(price250g) || 12000,
+            conversion_factor: 250,
+          },
+          {
+            unit_name: '100g',
+            price: parseFloat(price100g) || 5000,
+            conversion_factor: 100,
+          },
+          {
+            unit_name: '50g',
+            price: parseFloat(price50g) || 3000,
+            conversion_factor: 50,
           },
         ]
       : units.map((u, idx) => ({
@@ -471,7 +530,7 @@ export default function AddProductModal({
               <div>
                 <div style={{ fontSize: '12px', fontWeight: 800 }}>Barang Kiloan / Timbangan</div>
                 <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                  Untuk beras, kacang, kemiri, kanji (dihitung per gram/kg)
+                  Beras, kacang, kemiri, kanji (bisa atur harga beda per gram)
                 </div>
               </div>
             </div>
@@ -483,11 +542,11 @@ export default function AddProductModal({
             />
           </div>
 
-          {/* Multi-Satuan Pricing Section */}
+          {/* Multi-Satuan / Weight Tiers Section */}
           <div className="form-group" style={{ marginBottom: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <label style={{ fontWeight: 800, color: 'var(--text-main)' }}>
-                {isBulk ? 'Harga Per Kg' : '🏷️ Pengaturan Multi-Satuan & Harga'}
+                {isBulk ? '⚖️ Konfigurasi Harga Per-Ukuran Timbangan (Beda Gram Bisa Beda Harga)' : '🏷️ Pengaturan Multi-Satuan & Harga'}
               </label>
               {!isBulk && (
                 <button
@@ -512,113 +571,216 @@ export default function AddProductModal({
               )}
             </div>
 
-            {/* Quick Unit Presets */}
-            {!isBulk && (
-              <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', alignSelf: 'center' }}>Preset:</span>
-                {UNIT_PRESETS.map((preset) => (
+            {/* If Bulk Item -> Show 5 Weight Tier Inputs (50g, 100g, 250g, 500g, 1kg) */}
+            {isBulk ? (
+              <div
+                style={{
+                  background: 'var(--color-secondary-light)',
+                  border: '1px solid rgba(2, 132, 199, 0.2)',
+                  padding: '12px',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-secondary)' }}>
+                    Atur Harga Khusus Tiap Ukuran Timbangan:
+                  </span>
                   <button
                     type="button"
-                    key={preset}
-                    onClick={() => handleAddUnitRow(preset)}
+                    onClick={() => handleAutoCalcWeightTiers(price1Kg)}
                     style={{
-                      padding: '3px 8px',
+                      background: '#ffffff',
+                      color: 'var(--color-secondary)',
+                      border: '1px solid rgba(2, 132, 199, 0.3)',
+                      padding: '2px 8px',
                       borderRadius: '6px',
                       fontSize: '10px',
                       fontWeight: 700,
-                      background: '#f1f5f9',
-                      border: '1px solid var(--border-color)',
-                      color: 'var(--text-main)',
                       cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
                     }}
                   >
-                    + {preset}
+                    <RefreshCw size={12} /> Hitung Proporsional
                   </button>
-                ))}
-              </div>
-            )}
+                </div>
 
-            {/* Unit Inputs List */}
-            {isBulk ? (
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>Satuan: Kg</span>
-                  <input
-                    type="number"
-                    className="form-control"
-                    placeholder="Harga per Kg (misal 44000)"
-                    value={units[0]?.price || '44000'}
-                    onChange={(e) => handleUnitChange(0, 'price', e.target.value)}
-                    required
-                  />
+                {/* 1 Kg */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: '1', fontSize: '12px', fontWeight: 800 }}>1 Kg (1.000 gram):</div>
+                  <div style={{ flex: '1.5', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Rp</span>
+                    <input
+                      type="number"
+                      className="form-control"
+                      style={{ paddingLeft: '28px', fontSize: '12px', fontWeight: 800, padding: '6px 8px 6px 28px' }}
+                      value={price1Kg}
+                      onChange={(e) => handleAutoCalcWeightTiers(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* 500 Gram */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: '1', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>500 gram (Setengah Kg):</div>
+                  <div style={{ flex: '1.5', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Rp</span>
+                    <input
+                      type="number"
+                      className="form-control"
+                      style={{ paddingLeft: '28px', fontSize: '12px', fontWeight: 800, padding: '6px 8px 6px 28px' }}
+                      value={price500g}
+                      onChange={(e) => setPrice500g(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* 250 Gram */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: '1', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>250 gram (Seperempat):</div>
+                  <div style={{ flex: '1.5', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Rp</span>
+                    <input
+                      type="number"
+                      className="form-control"
+                      style={{ paddingLeft: '28px', fontSize: '12px', fontWeight: 800, padding: '6px 8px 6px 28px' }}
+                      value={price250g}
+                      onChange={(e) => setPrice250g(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* 100 Gram */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: '1', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>100 gram:</div>
+                  <div style={{ flex: '1.5', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Rp</span>
+                    <input
+                      type="number"
+                      className="form-control"
+                      style={{ paddingLeft: '28px', fontSize: '12px', fontWeight: 800, padding: '6px 8px 6px 28px' }}
+                      value={price100g}
+                      onChange={(e) => setPrice100g(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                {/* 50 Gram */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ flex: '1', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>50 gram:</div>
+                  <div style={{ flex: '1.5', position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>Rp</span>
+                    <input
+                      type="number"
+                      className="form-control"
+                      style={{ paddingLeft: '28px', fontSize: '12px', fontWeight: 800, padding: '6px 8px 6px 28px' }}
+                      value={price50g}
+                      onChange={(e) => setPrice50g(e.target.value)}
+                      required
+                    />
+                  </div>
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {units.map((unit, index) => (
-                  <div
-                    key={index}
-                    style={{
-                      display: 'flex',
-                      gap: '6px',
-                      alignItems: 'center',
-                      background: '#f8fafc',
-                      padding: '8px',
-                      borderRadius: '8px',
-                      border: '1px solid var(--border-color)',
-                    }}
-                  >
-                    <input
-                      type="text"
-                      className="form-control"
-                      style={{ flex: '1', fontSize: '12px', padding: '8px' }}
-                      placeholder="Nama Satuan (Pcs/Renceng/Dus)"
-                      value={unit.unit_name}
-                      onChange={(e) => handleUnitChange(index, 'unit_name', e.target.value)}
-                      required
-                    />
-                    <div style={{ flex: '1.2', position: 'relative' }}>
-                      <span
-                        style={{
-                          position: 'absolute',
-                          left: '8px',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          fontSize: '11px',
-                          color: 'var(--text-muted)',
-                          fontWeight: 700,
-                        }}
-                      >
-                        Rp
-                      </span>
+              /* Non-Bulk Multi Units Builder */
+              <div>
+                <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', alignSelf: 'center' }}>Preset:</span>
+                  {UNIT_PRESETS.map((preset) => (
+                    <button
+                      type="button"
+                      key={preset}
+                      onClick={() => handleAddUnitRow(preset)}
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        background: '#f1f5f9',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-main)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      + {preset}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {units.map((unit, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        display: 'flex',
+                        gap: '6px',
+                        alignItems: 'center',
+                        background: '#f8fafc',
+                        padding: '8px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-color)',
+                      }}
+                    >
                       <input
-                        type="number"
+                        type="text"
                         className="form-control"
-                        style={{ paddingLeft: '28px', fontSize: '12px', fontWeight: 800, padding: '8px 8px 8px 28px' }}
-                        placeholder="Harga (misal 5000)"
-                        value={unit.price}
-                        onChange={(e) => handleUnitChange(index, 'price', e.target.value)}
+                        style={{ flex: '1', fontSize: '12px', padding: '8px' }}
+                        placeholder="Nama Satuan (Pcs/Renceng/Dus)"
+                        value={unit.unit_name}
+                        onChange={(e) => handleUnitChange(index, 'unit_name', e.target.value)}
                         required
                       />
+                      <div style={{ flex: '1.2', position: 'relative' }}>
+                        <span
+                          style={{
+                            position: 'absolute',
+                            left: '8px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            fontSize: '11px',
+                            color: 'var(--text-muted)',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Rp
+                        </span>
+                        <input
+                          type="number"
+                          className="form-control"
+                          style={{ paddingLeft: '28px', fontSize: '12px', fontWeight: 800, padding: '8px 8px 8px 28px' }}
+                          placeholder="Harga (misal 5000)"
+                          value={unit.price}
+                          onChange={(e) => handleUnitChange(index, 'price', e.target.value)}
+                          required
+                        />
+                      </div>
+                      {units.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveUnitRow(index)}
+                          style={{
+                            background: '#fef2f2',
+                            color: '#dc2626',
+                            border: 'none',
+                            padding: '6px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </div>
-                    {units.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveUnitRow(index)}
-                        style={{
-                          background: '#fef2f2',
-                          color: '#dc2626',
-                          border: 'none',
-                          padding: '6px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
           </div>
