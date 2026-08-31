@@ -42,8 +42,8 @@ export default function TransactionHistoryModal({
         {/* Daily Summary Box */}
         <div
           style={{
-            background: 'linear-gradient(135deg, #059669, #047857)',
-            padding: '16px',
+            background: 'var(--color-primary)',
+            padding: '14px',
             borderRadius: '14px',
             color: '#ffffff',
             marginBottom: '16px',
