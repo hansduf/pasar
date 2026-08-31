@@ -37,10 +37,15 @@ CREATE TABLE IF NOT EXISTS public.transactions (
     transaction_no TEXT UNIQUE NOT NULL,
     customer_name TEXT DEFAULT 'Pelanggan Umum',
     total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    cash_received NUMERIC(12, 2) DEFAULT 0,
+    change_amount NUMERIC(12, 2) DEFAULT 0,
     payment_method TEXT DEFAULT 'Tunai',
     notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS cash_received NUMERIC(12, 2) DEFAULT 0;
+ALTER TABLE public.transactions ADD COLUMN IF NOT EXISTS change_amount NUMERIC(12, 2) DEFAULT 0;
 
 -- 5. Transaction Items Table (Detail Barang Terjual)
 CREATE TABLE IF NOT EXISTS public.transaction_items (
@@ -235,9 +240,11 @@ $$;
 CREATE OR REPLACE FUNCTION public.checkout_transaction(
     p_customer_name TEXT,
     p_total_amount NUMERIC,
-    p_payment_method TEXT,
-    p_notes TEXT,
-    p_items JSONB
+    p_cash_received NUMERIC DEFAULT 0,
+    p_change_amount NUMERIC DEFAULT 0,
+    p_payment_method TEXT DEFAULT 'Tunai',
+    p_notes TEXT DEFAULT '',
+    p_items JSONB DEFAULT '[]'::jsonb
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -251,10 +258,11 @@ BEGIN
     v_transaction_no := 'INV-' || to_char(NOW(), 'YYYYMMDD-HH24MISS') || '-' || floor(random() * 900 + 100)::text;
 
     INSERT INTO public.transactions (
-        transaction_no, customer_name, total_amount, payment_method, notes
+        transaction_no, customer_name, total_amount, cash_received, change_amount, payment_method, notes
     ) VALUES (
         v_transaction_no, COALESCE(NULLIF(p_customer_name, ''), 'Pelanggan Umum'),
-        p_total_amount, COALESCE(p_payment_method, 'Tunai'), p_notes
+        p_total_amount, COALESCE(p_cash_received, 0), COALESCE(p_change_amount, 0),
+        COALESCE(p_payment_method, 'Tunai'), p_notes
     ) RETURNING id INTO v_transaction_id;
 
     FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)

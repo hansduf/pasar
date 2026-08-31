@@ -101,6 +101,7 @@ export default function POSDashboard() {
     }
 
     fetchProductsFromSupabase();
+    fetchTransactionsFromSupabase();
   }, []);
 
   // Save carts to localStorage whenever updated
@@ -117,6 +118,22 @@ export default function POSDashboard() {
   useEffect(() => {
     localStorage.setItem('pasar_pos_transactions', JSON.stringify(transactions));
   }, [transactions]);
+
+  const fetchTransactionsFromSupabase = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*, items:transaction_items(*)')
+        .order('created_at', { ascending: false });
+
+      if (!error && data && Array.isArray(data)) {
+        setTransactions(data);
+        localStorage.setItem('pasar_pos_transactions', JSON.stringify(data));
+      }
+    } catch (e) {
+      console.warn('Fetch transactions catch:', e);
+    }
+  };
 
   const fetchProductsFromSupabase = async () => {
     setDbStatus('CHECKING');
@@ -432,16 +449,43 @@ export default function POSDashboard() {
       items: [...activeCart.items],
     };
 
+    // Call Supabase RPC to insert into transactions & transaction_items tables
+    try {
+      const { data, error } = await supabase.rpc('checkout_transaction', {
+        p_customer_name: activeCart.name,
+        p_total_amount: activeCartTotal,
+        p_cash_received: cashReceived,
+        p_change_amount: changeAmount,
+        p_payment_method: 'Tunai',
+        p_notes: activeCart.notes || '',
+        p_items: activeCart.items,
+      });
+
+      if (error) {
+        alert(`❌ Gagal simpan transaksi ke Supabase: ${error.message}`);
+      } else if (data && data.success === false) {
+        alert(`❌ Gagal simpan transaksi ke Supabase: ${data.error}`);
+      } else if (data && data.transaction_no) {
+        newTx.transaction_no = data.transaction_no;
+        if (data.transaction_id) newTx.id = data.transaction_id;
+      }
+    } catch (e: any) {
+      console.warn('RPC checkout warning:', e);
+    }
+
     setTransactions([newTx, ...transactions]);
     setLatestTransaction(newTx);
 
-    // Clear active cart items
+    // Clear active cart items & notes
     setCarts((prev) =>
-      prev.map((c) => (c.id === activeCartId ? { ...c, items: [] } : c))
+      prev.map((c) => (c.id === activeCartId ? { ...c, items: [], notes: '' } : c))
     );
 
     setIsCartDrawerOpen(false);
     setIsReceiptOpen(true);
+    setTimeout(() => {
+      fetchTransactionsFromSupabase();
+    }, 500);
   };
 
   // Filtered Products
