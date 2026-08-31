@@ -15,6 +15,9 @@ import {
   ChevronRight,
   LayoutGrid,
   List,
+  TrendingUp,
+  X,
+  FileText,
 } from 'lucide-react';
 import {
   Product,
@@ -34,8 +37,12 @@ import CartItemCustomPriceModal from '../components/CartItemCustomPriceModal';
 import MultiCartDrawer from '../components/MultiCartDrawer';
 import ReceiptModal from '../components/ReceiptModal';
 import TransactionHistoryModal from '../components/TransactionHistoryModal';
+import SalesReportView from '../components/SalesReportView';
 
 export default function POSDashboard() {
+  // Main App View Mode: POS Katalog vs Laporan Penjualan & Omset
+  const [mainTab, setMainTab] = useState<'POS' | 'REPORT'>('POS');
+
   // Products & Categories (Pure Supabase DB State)
   const [products, setProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,6 +162,24 @@ export default function POSDashboard() {
     setCarts(
       carts.map((c) => (c.id === cartId ? { ...c, name: newName } : c))
     );
+  };
+
+  const handleUpdateCartNotes = (cartId: string, notes: string) => {
+    setCarts(
+      carts.map((c) => (c.id === cartId ? { ...c, notes } : c))
+    );
+  };
+
+  const handleRemoveCartTab = (cartId: string) => {
+    if (carts.length <= 1) {
+      alert('Minimal harus ada 1 tab nota!');
+      return;
+    }
+    const filtered = carts.filter((c) => c.id !== cartId);
+    setCarts(filtered);
+    if (activeCartId === cartId) {
+      setActiveCartId(filtered[0].id);
+    }
   };
 
   // Editing Cart Item ID for Ubah Berat replacement
@@ -435,9 +460,15 @@ export default function POSDashboard() {
     'Minuman & Snack',
   ];
 
+  // Feature: Re-print receipt
+  const handleReprintReceipt = (tx: Transaction) => {
+    setLatestTransaction(tx);
+    setIsReceiptOpen(true);
+  };
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-app)' }}>
-      {/* 1. Header & Multi-Nota Switcher */}
+      {/* 1. Header & Main Navigation Switcher */}
       <header className="app-header">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -507,64 +538,176 @@ export default function POSDashboard() {
           </div>
         )}
 
-        {/* Tab Nota Switcher */}
-        <div className="tab-switcher">
-          {carts.map((cart) => {
-            const count = cart.items.reduce((s, i) => s + i.qty, 0);
-            return (
-              <button
-                key={cart.id}
-                onClick={() => setActiveCartId(cart.id)}
-                className={`tab-btn ${activeCartId === cart.id ? 'active' : ''}`}
-              >
-                <span>{cart.name}</span>
-                {count > 0 && <span className="badge-count">{count}</span>}
-              </button>
-            );
-          })}
-
-          <button onClick={handleAddCartTab} className="tab-btn" style={{ borderStyle: 'dashed' }}>
-            <Plus size={14} /> Nota Baru
-          </button>
-        </div>
-      </header>
-
-      {/* 2. Search & Category Filters & View Switcher */}
-      <div className="search-container">
-        <div className="search-row">
-          <div className="search-input-wrapper">
-            <Search className="search-icon" size={20} />
-            <input
-              type="text"
-              placeholder="Cari produk... (Royco, Mie 3, Kemiri)"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-
-          {/* View Mode Toggle Button */}
+        {/* Main View Mode Switcher Pills (Kasir vs Laporan Penjualan) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
           <button
             type="button"
-            className={`view-toggle-btn ${viewMode === 'GRID' ? 'active' : ''}`}
-            onClick={() => setViewMode(viewMode === 'GRID' ? 'LIST' : 'GRID')}
-            title={viewMode === 'GRID' ? 'Ubah ke Tampilan List' : 'Ubah ke Tampilan Grid'}
+            className={`btn ${mainTab === 'POS' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontSize: '13px', padding: '8px 10px', borderRadius: '10px' }}
+            onClick={() => setMainTab('POS')}
           >
-            {viewMode === 'GRID' ? <List size={20} /> : <LayoutGrid size={20} />}
+            <ShoppingBag size={16} /> Kasir & Katalog
+          </button>
+          <button
+            type="button"
+            className={`btn ${mainTab === 'REPORT' ? 'btn-primary' : 'btn-secondary'}`}
+            style={{ fontSize: '13px', padding: '8px 10px', borderRadius: '10px' }}
+            onClick={() => setMainTab('REPORT')}
+          >
+            <TrendingUp size={16} /> Laporan & Omset
           </button>
         </div>
 
-        <div className="category-pills">
-          {categoriesList.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`category-pill ${selectedCategory === cat ? 'active' : ''}`}
+        {mainTab === 'POS' && (
+          <>
+            {/* Tab Nota Switcher with Close Button */}
+            <div className="tab-switcher">
+              {carts.map((cart) => {
+                const count = cart.items.reduce((s, i) => s + i.qty, 0);
+                const isSelected = activeCartId === cart.id;
+                return (
+                  <div
+                    key={cart.id}
+                    onClick={() => setActiveCartId(cart.id)}
+                    className={`tab-btn ${isSelected ? 'active' : ''}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <span>{cart.name}</span>
+                    {count > 0 && <span className="badge-count">{count}</span>}
+                    {carts.length > 1 && (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveCartTab(cart.id);
+                        }}
+                        style={{
+                          marginLeft: '2px',
+                          opacity: 0.7,
+                          padding: '0 2px',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: '800',
+                          cursor: 'pointer',
+                        }}
+                        title="Hapus Tab Nota Ini"
+                      >
+                        ✕
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+
+              <button onClick={handleAddCartTab} className="tab-btn" style={{ borderStyle: 'dashed' }}>
+                <Plus size={14} /> Nota Baru
+              </button>
+            </div>
+
+            {/* Active Tab Customer Name & Notes Inline Inputs */}
+            <div
+              style={{
+                background: '#ffffff',
+                border: '1px solid var(--border-color)',
+                borderRadius: '10px',
+                padding: '8px 10px',
+                marginTop: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                boxShadow: 'var(--shadow-xs)',
+              }}
             >
-              {cat}
-            </button>
-          ))}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', whiteSpace: 'nowrap', width: '70px' }}>
+                  👤 Nama:
+                </span>
+                <input
+                  type="text"
+                  placeholder="Ketik Nama (Pak Joko, Bu Sri, Warung...)"
+                  value={activeCart.name}
+                  onChange={(e) => handleRenameCart(activeCart.id, e.target.value)}
+                  style={{
+                    width: '100%',
+                    fontSize: '13px',
+                    fontWeight: '800',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    padding: '4px 8px',
+                    background: 'var(--bg-app)',
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)', whiteSpace: 'nowrap', width: '70px' }}>
+                  📝 Catatan:
+                </span>
+                <input
+                  type="text"
+                  placeholder="Catatan (Diambil sore, Ditinggal...)"
+                  value={activeCart.notes || ''}
+                  onChange={(e) => handleUpdateCartNotes(activeCart.id, e.target.value)}
+                  style={{
+                    width: '100%',
+                    fontSize: '12px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    padding: '4px 8px',
+                    background: 'var(--bg-app)',
+                  }}
+                />
+              </div>
+            </div>
+          </>
+        )}
+      </header>
+
+      {/* Main View Conditional Rendering */}
+      {mainTab === 'REPORT' ? (
+        <div style={{ padding: '12px' }}>
+          <SalesReportView
+            transactions={transactions}
+            onReprintReceipt={handleReprintReceipt}
+            onReopenTransaction={handleReopenTransaction}
+          />
         </div>
-      </div>
+      ) : (
+        <>
+          {/* 2. Search & Category Filters & View Switcher */}
+          <div className="search-container">
+            <div className="search-row">
+              <div className="search-input-wrapper">
+                <Search className="search-icon" size={20} />
+                <input
+                  type="text"
+                  placeholder="Cari produk... (Royco, Mie 3, Kemiri)"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              {/* View Mode Toggle Button */}
+              <button
+                type="button"
+                className={`view-toggle-btn ${viewMode === 'GRID' ? 'active' : ''}`}
+                onClick={() => setViewMode(viewMode === 'GRID' ? 'LIST' : 'GRID')}
+                title={viewMode === 'GRID' ? 'Ubah ke Tampilan List' : 'Ubah ke Tampilan Grid'}
+              >
+                {viewMode === 'GRID' ? <List size={20} /> : <LayoutGrid size={20} />}
+              </button>
+            </div>
+
+            <div className="category-pills">
+              {categoriesList.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`category-pill ${selectedCategory === cat ? 'active' : ''}`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
 
       {/* 3. Visual Product Catalog Grid or List View */}
       {filteredProducts.length === 0 ? (
@@ -729,6 +872,8 @@ export default function POSDashboard() {
             Lihat Nota <ChevronRight size={20} />
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* 6. Modals */}

@@ -45,6 +45,7 @@ export interface CartItem {
 export interface Cart {
   id: string;
   name: string;
+  notes?: string;
   items: CartItem[];
 }
 

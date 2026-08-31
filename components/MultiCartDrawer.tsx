@@ -58,22 +58,29 @@ export default function MultiCartDrawer({
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ShoppingBag size={22} color="var(--color-primary)" />
-            <input
-              type="text"
-              value={cart.name}
-              onChange={(e) => onRenameCart(cart.id, e.target.value)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-main)',
-                fontSize: '18px',
-                fontWeight: '800',
-                outline: 'none',
-                borderBottom: '1px dashed var(--border-color)',
-                paddingBottom: '2px',
-                width: '160px',
-              }}
-            />
+            <div>
+              <input
+                type="text"
+                value={cart.name}
+                onChange={(e) => onRenameCart(cart.id, e.target.value)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-main)',
+                  fontSize: '18px',
+                  fontWeight: '800',
+                  outline: 'none',
+                  borderBottom: '1px dashed var(--border-color)',
+                  paddingBottom: '2px',
+                  width: '180px',
+                }}
+              />
+              {cart.notes && (
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '700', marginTop: '2px' }}>
+                  📝 {cart.notes}
+                </div>
+              )}
+            </div>
           </div>
           <button className="modal-close-btn" onClick={onClose}>
             <X size={24} />
