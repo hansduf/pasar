@@ -1,9 +1,93 @@
 -- ====================================================================
--- PASAR POS: Supabase Stored Procedures (RPC Functions)
--- Run this script in the Supabase SQL Editor AFTER schema.sql
+-- PASAR POS: Combined Supabase Database Setup & Stored Procedures (RPCs)
+-- Copy and paste this ENTIRE script into the Supabase SQL Editor and click RUN
 -- ====================================================================
 
--- 1. RPC: Get Products with All Units & Promos in a single query
+-- 1. Enable UUID Extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. Products Table
+CREATE TABLE IF NOT EXISTS public.products (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    category TEXT DEFAULT 'Umum',
+    image_url TEXT,
+    is_bulk BOOLEAN DEFAULT FALSE, -- TRUE for weighted items like Beras, Kacang, Kemiri
+    promo_buy_qty INT DEFAULT 0,   -- Buy X (e.g. 5)
+    promo_get_qty INT DEFAULT 0,   -- Get Y Free (e.g. 1)
+    promo_info TEXT,               -- Custom promo text e.g. "Beli 5 Gratis 1"
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 3. Product Units & Pricing Table (Multi-Tier Satuan)
+CREATE TABLE IF NOT EXISTS public.product_units (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_id UUID NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+    unit_name TEXT NOT NULL,       -- e.g. "Pcs", "Renceng", "Lembar", "Karton", "Kg", "Gram"
+    price NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    conversion_factor NUMERIC(10, 2) DEFAULT 1, -- Conversion multiplier
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 4. Transactions Table (History Penjualan)
+CREATE TABLE IF NOT EXISTS public.transactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    transaction_no TEXT UNIQUE NOT NULL,
+    customer_name TEXT DEFAULT 'Pelanggan Umum',
+    total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    payment_method TEXT DEFAULT 'Tunai',
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 5. Transaction Items Table (Detail Barang Terjual)
+CREATE TABLE IF NOT EXISTS public.transaction_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    transaction_id UUID NOT NULL REFERENCES public.transactions(id) ON DELETE CASCADE,
+    product_name TEXT NOT NULL,
+    unit_name TEXT NOT NULL,
+    price NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    qty NUMERIC(10, 3) NOT NULL DEFAULT 1,
+    discount_amount NUMERIC(12, 2) DEFAULT 0,
+    is_bonus BOOLEAN DEFAULT FALSE,
+    subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 6. Indexes for Lightning Fast Search
+CREATE INDEX IF NOT EXISTS idx_products_name ON public.products (name);
+CREATE INDEX IF NOT EXISTS idx_products_category ON public.products (category);
+CREATE INDEX IF NOT EXISTS idx_product_units_product ON public.product_units (product_id);
+CREATE INDEX IF NOT EXISTS idx_transactions_created ON public.transactions (created_at DESC);
+
+-- 7. Supabase Storage Bucket Setup Script for Product Photos
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('product-images', 'product-images', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Public Storage Policy (Allow Anyone to Read/Download)
+CREATE POLICY "Public Read Access" 
+ON storage.objects FOR SELECT 
+USING (bucket_id = 'product-images');
+
+-- Public Upload Policy (Allow Anyone to Upload Product Photos)
+CREATE POLICY "Public Upload Access" 
+ON storage.objects FOR INSERT 
+WITH CHECK (bucket_id = 'product-images');
+
+-- Public Update/Delete Policy
+CREATE POLICY "Public Manage Access" 
+ON storage.objects FOR ALL 
+USING (bucket_id = 'product-images');
+
+-- ====================================================================
+-- STORED PROCEDURES (RPCs)
+-- ====================================================================
+
+-- RPC 1: Get Products with All Units & Promos in a single query
 CREATE OR REPLACE FUNCTION public.get_products_with_units(
     search_query TEXT DEFAULT '',
     category_filter TEXT DEFAULT ''
@@ -50,8 +134,7 @@ BEGIN
 END;
 $$;
 
-
--- 2. RPC: Create Product with Multi-Tier Units in an Atomic Transaction
+-- RPC 2: Create Product with Multi-Tier Units in an Atomic Transaction
 CREATE OR REPLACE FUNCTION public.create_product_with_units(
     p_name TEXT,
     p_category TEXT,
@@ -60,7 +143,7 @@ CREATE OR REPLACE FUNCTION public.create_product_with_units(
     p_buy_qty INT,
     p_get_qty INT,
     p_promo_info TEXT,
-    p_units JSONB -- Array of JSON objects: [{"unit_name": "Pcs", "price": 500, "conversion_factor": 1, "is_default": true}]
+    p_units JSONB
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -69,7 +152,6 @@ DECLARE
     v_product_id UUID;
     v_unit_elem JSONB;
 BEGIN
-    -- Insert Product
     INSERT INTO public.products (
         name, category, image_url, is_bulk, promo_buy_qty, promo_get_qty, promo_info
     ) VALUES (
@@ -77,7 +159,6 @@ BEGIN
         COALESCE(p_buy_qty, 0), COALESCE(p_get_qty, 0), p_promo_info
     ) RETURNING id INTO v_product_id;
 
-    -- Insert Units
     FOR v_unit_elem IN SELECT * FROM jsonb_array_elements(p_units)
     LOOP
         INSERT INTO public.product_units (
@@ -103,8 +184,7 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
-
--- 3. RPC: Quick 1-Tap Update Unit Price (UX Ayah/Toko Super Cepat)
+-- RPC 3: Quick 1-Tap Update Unit Price
 CREATE OR REPLACE FUNCTION public.update_product_unit_price(
     p_unit_id UUID,
     p_new_price NUMERIC
@@ -123,14 +203,13 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
-
--- 4. RPC: Atomic Transaction Checkout (Save Invoice & Line Items)
+-- RPC 4: Atomic Transaction Checkout
 CREATE OR REPLACE FUNCTION public.checkout_transaction(
     p_customer_name TEXT,
     p_total_amount NUMERIC,
     p_payment_method TEXT,
     p_notes TEXT,
-    p_items JSONB -- Array of JSON objects: [{"product_name": "...", "unit_name": "...", "price": 5000, "qty": 1, "discount_amount": 0, "is_bonus": false, "subtotal": 5000, "notes": "..."}]
+    p_items JSONB
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -140,10 +219,8 @@ DECLARE
     v_transaction_no TEXT;
     v_item JSONB;
 BEGIN
-    -- Generate Transaction Number INV-YYYYMMDD-XXXX
     v_transaction_no := 'INV-' || to_char(NOW(), 'YYYYMMDD-HH24MISS') || '-' || floor(random() * 900 + 100)::text;
 
-    -- Insert Transaction Record
     INSERT INTO public.transactions (
         transaction_no, customer_name, total_amount, payment_method, notes
     ) VALUES (
@@ -151,7 +228,6 @@ BEGIN
         p_total_amount, COALESCE(p_payment_method, 'Tunai'), p_notes
     ) RETURNING id INTO v_transaction_id;
 
-    -- Insert Transaction Items
     FOR v_item IN SELECT * FROM jsonb_array_elements(p_items)
     LOOP
         INSERT INTO public.transaction_items (
