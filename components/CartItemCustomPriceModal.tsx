@@ -32,7 +32,7 @@ export default function CartItemCustomPriceModal({
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" style={{ zIndex: 120 }} onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

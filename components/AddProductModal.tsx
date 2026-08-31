@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Camera, Plus, Trash2, Check, Sparkles, Scale, AlertTriangle, RefreshCw } from 'lucide-react';
-import { compressImage } from '../lib/imageCompressor';
+import { compressImage, compressImageDataUrl } from '../lib/imageCompressor';
 import { supabase } from '../lib/supabase';
 
 interface UnitFormInput {
@@ -143,12 +143,12 @@ export default function AddProductModal({
     if (!file) return;
 
     try {
+      const dataUrl = await compressImageDataUrl(file, 600, 600, 0.75);
+      setImagePreview(dataUrl);
       const compressed = await compressImage(file, 800, 800, 0.8);
       setCompressedFile(compressed);
-      setImagePreview(URL.createObjectURL(compressed));
     } catch (err) {
       console.error('Compression error:', err);
-      setImagePreview(URL.createObjectURL(file));
     }
   };
 

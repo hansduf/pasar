@@ -108,10 +108,38 @@ export default function POSDashboard() {
     localStorage.setItem('pasar_pos_products', JSON.stringify(products));
   }, [products]);
 
-  // Save transactions to localStorage
+  const [dbStatus, setDbStatus] = useState<'CHECKING' | 'CONNECTED' | 'OFFLINE'>('CHECKING');
+
+  // Load / Sync from LocalStorage or Supabase
   useEffect(() => {
-    localStorage.setItem('pasar_pos_transactions', JSON.stringify(transactions));
-  }, [transactions]);
+    const savedCarts = localStorage.getItem('pasar_pos_carts');
+    if (savedCarts) {
+      try {
+        setCarts(JSON.parse(savedCarts));
+      } catch (e) {}
+    }
+
+    const savedProds = localStorage.getItem('pasar_pos_products');
+    if (savedProds) {
+      try {
+        const parsed = JSON.parse(savedProds);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map((p: Product) => p.id));
+          const missingMocks = INITIAL_MOCK_PRODUCTS.filter((m) => !existingIds.has(m.id));
+          setProducts([...parsed, ...missingMocks]);
+        }
+      } catch (e) {}
+    }
+
+    const savedTx = localStorage.getItem('pasar_pos_transactions');
+    if (savedTx) {
+      try {
+        setTransactions(JSON.parse(savedTx));
+      } catch (e) {}
+    }
+
+    fetchProductsFromSupabase();
+  }, []);
 
   const fetchProductsFromSupabase = async () => {
     try {
@@ -121,9 +149,12 @@ export default function POSDashboard() {
       });
       if (!error && data && Array.isArray(data) && data.length > 0) {
         setProducts(data);
+        setDbStatus('CONNECTED');
+      } else {
+        setDbStatus('OFFLINE');
       }
     } catch (err) {
-      // Fallback to local mock data
+      setDbStatus('OFFLINE');
     }
   };
 
@@ -423,8 +454,19 @@ export default function POSDashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Store size={24} color="var(--color-primary)" />
             <div>
-              <h1 style={{ fontSize: '18px', fontWeight: '800', lineHeight: 1.1 }}>TOKO PASAR POS</h1>
-              <span style={{ fontSize: '11px', color: '#34d399', fontWeight: '600' }}>● Katalog & Multi-Nota Active</span>
+              <h1 style={{ fontSize: '16px', fontWeight: '900', lineHeight: 1.1 }}>TOKO PASAR POS</h1>
+              <span
+                style={{
+                  fontSize: '10px',
+                  fontWeight: '700',
+                  color: dbStatus === 'CONNECTED' ? '#059669' : 'var(--text-muted)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                {dbStatus === 'CONNECTED' ? '🟢 Supabase Live' : '📴 Mode Offline / Cache'}
+              </span>
             </div>
           </div>
 
