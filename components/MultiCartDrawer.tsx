@@ -261,6 +261,8 @@ export default function MultiCartDrawer({
                   <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Uang Diterima (Rp):</span>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     className="form-control"
                     style={{ fontSize: '17px', fontWeight: '800', padding: '8px 10px', color: 'var(--color-secondary)' }}
                     placeholder="0"

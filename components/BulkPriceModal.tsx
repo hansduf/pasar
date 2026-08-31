@@ -253,6 +253,8 @@ export default function BulkPriceModal({
               <label>Atau Ketik Berat Khusus (Gram):</label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 className="form-control"
                 style={{ fontSize: '16px', fontWeight: '800', padding: '10px 12px' }}
                 placeholder="Contoh: 350"
@@ -293,6 +295,8 @@ export default function BulkPriceModal({
               <label>Ketik Uang Pelanggan (Rp):</label>
               <input
                 type="number"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 className="form-control"
                 style={{ fontSize: '16px', fontWeight: '800', padding: '10px 12px' }}
                 placeholder="Contoh: 5000"
