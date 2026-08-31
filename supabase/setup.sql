@@ -63,7 +63,25 @@ CREATE INDEX IF NOT EXISTS idx_products_category ON public.products (category);
 CREATE INDEX IF NOT EXISTS idx_product_units_product ON public.product_units (product_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_created ON public.transactions (created_at DESC);
 
--- 7. Supabase Storage Bucket Setup Script for Product Photos
+-- 7. Enable RLS and add Full Public Access Policies (Fix "new row violates row-level security policy")
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_units ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.transaction_items ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public all on products" ON public.products;
+CREATE POLICY "Allow public all on products" ON public.products FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all on product_units" ON public.product_units;
+CREATE POLICY "Allow public all on product_units" ON public.product_units FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all on transactions" ON public.transactions;
+CREATE POLICY "Allow public all on transactions" ON public.transactions FOR ALL USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public all on transaction_items" ON public.transaction_items;
+CREATE POLICY "Allow public all on transaction_items" ON public.transaction_items FOR ALL USING (true) WITH CHECK (true);
+
+-- 8. Supabase Storage Bucket Setup Script for Product Photos
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('product-images', 'product-images', true)
 ON CONFLICT (id) DO NOTHING;
@@ -89,7 +107,7 @@ ON storage.objects FOR ALL
 USING (bucket_id = 'product-images');
 
 -- ====================================================================
--- STORED PROCEDURES (RPCs)
+-- STORED PROCEDURES (RPCs with SECURITY DEFINER for Bypass RLS)
 -- ====================================================================
 
 -- RPC 1: Get Products with All Units & Promos in a single query
@@ -99,6 +117,7 @@ CREATE OR REPLACE FUNCTION public.get_products_with_units(
 )
 RETURNS JSONB
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 DECLARE
     result JSONB;
@@ -154,6 +173,7 @@ CREATE OR REPLACE FUNCTION public.create_product_with_units(
 )
 RETURNS JSONB
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 DECLARE
     v_product_id UUID;
@@ -198,6 +218,7 @@ CREATE OR REPLACE FUNCTION public.update_product_unit_price(
 )
 RETURNS JSONB
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 BEGIN
     UPDATE public.product_units
@@ -220,6 +241,7 @@ CREATE OR REPLACE FUNCTION public.checkout_transaction(
 )
 RETURNS JSONB
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 DECLARE
     v_transaction_id UUID;
@@ -279,6 +301,7 @@ CREATE OR REPLACE FUNCTION public.update_product_full(
 )
 RETURNS JSONB
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 DECLARE
     v_unit_elem JSONB;
@@ -322,6 +345,7 @@ CREATE OR REPLACE FUNCTION public.delete_product(
 )
 RETURNS JSONB
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 BEGIN
     DELETE FROM public.products WHERE id = p_product_id;
