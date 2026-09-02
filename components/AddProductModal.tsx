@@ -61,6 +61,7 @@ export default function AddProductModal({
   // Promo Setup
   const [promoBuyQty, setPromoBuyQty] = useState('0');
   const [promoGetQty, setPromoGetQty] = useState('0');
+  const [promoUnitName, setPromoUnitName] = useState('');
   const [promoInfo, setPromoInfo] = useState('');
 
   // Standard Multi-Units setup (for non-bulk items)
@@ -88,6 +89,7 @@ export default function AddProductModal({
       setImagePreview(initialProduct.image_url || null);
       setPromoBuyQty(initialProduct.promo_buy_qty ? String(initialProduct.promo_buy_qty) : '0');
       setPromoGetQty(initialProduct.promo_get_qty ? String(initialProduct.promo_get_qty) : '0');
+      setPromoUnitName(initialProduct.promo_unit_name || '');
       setPromoInfo(initialProduct.promo_info || '');
 
       if (initialProduct.units && initialProduct.units.length > 0) {
@@ -267,6 +269,8 @@ export default function AddProductModal({
 
     if (initialProduct) {
       // EDIT MODE
+      const selectedPromoUnit = promoUnitName || (parsedUnits[0]?.unit_name || 'Pcs');
+
       const updatedProd = {
         ...initialProduct,
         name,
@@ -275,6 +279,7 @@ export default function AddProductModal({
         is_bulk: isBulk,
         promo_buy_qty: buyQty,
         promo_get_qty: getQty,
+        promo_unit_name: selectedPromoUnit,
         promo_info: promoText,
         units: parsedUnits,
       };
@@ -308,6 +313,7 @@ export default function AddProductModal({
     } else {
       // CREATE MODE
       let newProductId = `prod-${Date.now()}`;
+      const selectedPromoUnit = promoUnitName || (parsedUnits[0]?.unit_name || 'Pcs');
 
       // Call Supabase RPC
       try {
@@ -341,6 +347,7 @@ export default function AddProductModal({
         is_bulk: isBulk,
         promo_buy_qty: buyQty,
         promo_get_qty: getQty,
+        promo_unit_name: selectedPromoUnit,
         promo_info: promoText,
         units: parsedUnits,
       };
@@ -811,20 +818,46 @@ export default function AddProductModal({
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 800, fontSize: '12px', color: '#b45309', marginBottom: '6px' }}>
               <Sparkles size={16} /> Promo Buy X Get Y (Opsional)
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
               <div>
-                <label style={{ fontSize: '10px', fontWeight: 700, color: '#92400e' }}>Beli Berapa (Buy Qty):</label>
+                <label style={{ fontSize: '10px', fontWeight: 700, color: '#92400e' }}>Satuan Promo:</label>
+                <select
+                  className="form-control"
+                  style={{ fontSize: '12px', padding: '6px 8px' }}
+                  value={promoUnitName}
+                  onChange={(e) => setPromoUnitName(e.target.value)}
+                >
+                  <option value="">-- Paling Utama --</option>
+                  {isBulk ? (
+                    <>
+                      <option value="1 Kg">1 Kg</option>
+                      <option value="500g">500g</option>
+                      <option value="250g">250g</option>
+                      <option value="100g">100g</option>
+                      <option value="50g">50g</option>
+                    </>
+                  ) : (
+                    units.map((u, idx) => (
+                      <option key={idx} value={u.unit_name}>
+                        {u.unit_name}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+              <div>
+                <label style={{ fontSize: '10px', fontWeight: 700, color: '#92400e' }}>Beli Qty:</label>
                 <input
                   type="number"
                   className="form-control"
                   style={{ fontSize: '12px', padding: '6px 8px' }}
-                  placeholder="0 (misal 5)"
+                  placeholder="0 (misal 4)"
                   value={promoBuyQty}
                   onChange={(e) => setPromoBuyQty(e.target.value)}
                 />
               </div>
               <div>
-                <label style={{ fontSize: '10px', fontWeight: 700, color: '#92400e' }}>Gratis Berapa (Get Qty):</label>
+                <label style={{ fontSize: '10px', fontWeight: 700, color: '#92400e' }}>Bonus Qty:</label>
                 <input
                   type="number"
                   className="form-control"

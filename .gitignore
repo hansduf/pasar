@@ -12,6 +12,10 @@
 .env.production.local
 supabse.conf
 *.conf
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
 
 # Debug logs
 npm-debug.log*

@@ -231,25 +231,22 @@ export default function POSDashboard() {
           targetQty = Number(updatedItems[existingItemIndex].qty) + addQty;
         }
 
-        // Apply Buy X Get Y Promo calculation
-        let paidQty = targetQty;
-        let isBonus = false;
-        let finalSubtotal = targetQty * unitPrice;
-
+        // Apply Buy X Get Y Promo Mode B (Extra Bonus Item)
         const buyQty = Number(product.promo_buy_qty) || 0;
         const getQty = Number(product.promo_get_qty) || 0;
+        const targetPromoUnit = (product.promo_unit_name || '').trim().toLowerCase();
+        const isUnitMatch = !targetPromoUnit || unitName.trim().toLowerCase() === targetPromoUnit;
 
-        if (buyQty > 0 && getQty > 0) {
-          const promoSetSize = buyQty + getQty; // e.g. 5 + 1 = 6
-          const fullPromoSets = Math.floor(targetQty / promoSetSize);
-          const freeItemsCount = fullPromoSets * getQty;
-          paidQty = Math.max(0, targetQty - freeItemsCount);
-          finalSubtotal = paidQty * unitPrice;
+        let bonusQty = 0;
+        let itemNotes = notes || '';
 
-          if (freeItemsCount > 0) {
-            notes = notes
-              ? `${notes} | 🎁 Dapat ${freeItemsCount} Bonus Gratis`
-              : `🎁 Free ${freeItemsCount} pcs (Promo ${product.promo_info || 'Buy 5 Get 1'})`;
+        if (isUnitMatch && buyQty > 0 && getQty > 0) {
+          const promoSets = Math.floor(targetQty / buyQty);
+          bonusQty = promoSets * getQty;
+          if (bonusQty > 0) {
+            itemNotes = itemNotes
+              ? `${itemNotes} | 🎁 Bonus +${bonusQty} ${unitName}`
+              : `🎁 Bonus +${bonusQty} ${unitName} Gratis (Promo Beli ${buyQty} Gratis ${getQty})`;
           }
         }
 
@@ -261,9 +258,9 @@ export default function POSDashboard() {
           price: unitPrice,
           qty: targetQty,
           discount_amount: 0,
-          is_bonus: isBonus,
-          subtotal: Math.round(finalSubtotal),
-          notes: notes,
+          is_bonus: false,
+          subtotal: Math.round(targetQty * unitPrice),
+          notes: itemNotes,
           image_url: product.image_url,
           is_bulk: product.is_bulk,
           bulk_weight_gram: weightGram,
@@ -273,6 +270,35 @@ export default function POSDashboard() {
           updatedItems[existingItemIndex] = newCartItem;
         } else {
           updatedItems.push(newCartItem);
+        }
+
+        // Dedicated Bonus Line Item in Cart
+        const bonusLineId = `${product.id}-${unitName}-bonus`;
+        const existingBonusIndex = updatedItems.findIndex((i) => i.id === bonusLineId);
+
+        if (bonusQty > 0) {
+          const bonusCartItem: CartItem = {
+            id: bonusLineId,
+            product_id: product.id,
+            product_name: `[BONUS PROMO B${buyQty}G${getQty}] ${product.name}`,
+            unit_name: unitName,
+            price: 0,
+            qty: bonusQty,
+            discount_amount: 0,
+            is_bonus: true,
+            subtotal: 0,
+            notes: `🎁 Gratis ${bonusQty} ${unitName} (Promo Beli ${buyQty} Gratis ${getQty})`,
+            image_url: product.image_url,
+            is_bulk: product.is_bulk,
+          };
+
+          if (existingBonusIndex >= 0) {
+            updatedItems[existingBonusIndex] = bonusCartItem;
+          } else {
+            updatedItems.push(bonusCartItem);
+          }
+        } else if (existingBonusIndex >= 0) {
+          updatedItems.splice(existingBonusIndex, 1);
         }
 
         return { ...cart, items: updatedItems };
@@ -488,21 +514,22 @@ export default function POSDashboard() {
     }, 500);
   };
 
+  // Dynamic Category Extraction from DB
+  const dynamicCategories = Array.from(
+    new Set(products.map((p) => (p.category || '').trim()).filter(Boolean))
+  );
+  const categoriesList = ['Semua', ...dynamicCategories];
+
   // Filtered Products
   const filteredProducts = products.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'Semua' || p.category === selectedCategory;
+    const matchesSearch =
+      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.category || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      selectedCategory === 'Semua' ||
+      (p.category || '').trim().toLowerCase() === selectedCategory.trim().toLowerCase();
     return matchesSearch && matchesCategory;
   });
-
-  const categoriesList = [
-    'Semua',
-    'Bumbu & Bahan Dapur',
-    'Mie & Instant',
-    'Sembako & Timbangan',
-    'Sabun & Kebersihan',
-    'Minuman & Snack',
-  ];
 
   // Feature: Re-print receipt
   const handleReprintReceipt = (tx: Transaction) => {

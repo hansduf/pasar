@@ -22,6 +22,7 @@ export interface Product {
   is_bulk?: boolean;
   promo_buy_qty?: number;
   promo_get_qty?: number;
+  promo_unit_name?: string;
   promo_info?: string;
   units: ProductUnit[];
 }
