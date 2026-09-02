@@ -202,28 +202,25 @@ export default function AddProductModal({
       imagePreview ||
       'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?w=400&auto=format&fit=crop&q=80';
 
-    // 1. Upload image to Supabase Storage if new compressed file
+    // 1. Upload image to Google Drive if new compressed file
     if (compressedFile) {
       try {
-        const filename = `prod-${Date.now()}-${Math.random().toString(36).substring(7)}.webp`;
-        const { data, error } = await supabase.storage
-          .from('product-images')
-          .upload(filename, compressedFile, {
-            contentType: 'image/webp',
-            cacheControl: '3600',
-            upsert: true,
-          });
+        const formData = new FormData();
+        formData.append('file', compressedFile, `prod-${Date.now()}.webp`);
 
-        if (!error && data) {
-          const { data: publicUrlData } = supabase.storage
-            .from('product-images')
-            .getPublicUrl(filename);
-          if (publicUrlData?.publicUrl) {
-            imageUrl = publicUrlData.publicUrl;
+        const uploadRes = await fetch('/api/upload-drive', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json();
+          if (uploadData.success && uploadData.url) {
+            imageUrl = uploadData.url;
           }
         }
       } catch (err) {
-        console.warn('Storage upload warning:', err);
+        console.warn('Drive upload warning:', err);
       }
     }
 
