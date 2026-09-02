@@ -10,7 +10,7 @@ export function generateReceiptText(transaction: Transaction): string {
   });
 
   let text = `=================================\n`;
-  text += `        TOKO PASAR GROSIR        \n`;
+  text += `         TOKO BU GIANTO          \n`;
   text += `   Resi Penjualan / Struk Nota   \n`;
   text += `=================================\n`;
   text += `No. Nota : ${transaction.transaction_no}\n`;

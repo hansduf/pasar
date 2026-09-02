@@ -45,6 +45,7 @@ export default function AddProductModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Bumbu & Bahan Dapur');
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [isBulk, setIsBulk] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [compressedFile, setCompressedFile] = useState<Blob | null>(null);
@@ -508,28 +509,56 @@ export default function AddProductModal({
 
           {/* Category Chips */}
           <div className="form-group">
-            <label>Kategori Barang</label>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
-              {CATEGORY_PRESETS.map((cat) => (
-                <button
-                  type="button"
-                  key={cat}
-                  onClick={() => setCategory(cat)}
-                  style={{
-                    padding: '4px 10px',
-                    borderRadius: '99px',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    border: category === cat ? '1px solid var(--color-primary)' : '1px solid var(--border-color)',
-                    background: category === cat ? 'var(--color-primary-light)' : '#ffffff',
-                    color: category === cat ? 'var(--color-primary)' : 'var(--text-muted)',
-                  }}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Kategori Barang</span>
+              <button
+                type="button"
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-primary)',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+                onClick={() => setIsCustomCategory(!isCustomCategory)}
+              >
+                {isCustomCategory ? '← Pilih Preset' : '+ Tambah Kategori Baru'}
+              </button>
+            </label>
+            {isCustomCategory ? (
+              <input
+                type="text"
+                className="form-control"
+                style={{ fontSize: '12px', padding: '6px 10px', marginTop: '4px' }}
+                placeholder="Ketik nama kategori baru (misal: Plastik & Kemasan)..."
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                required
+              />
+            ) : (
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '4px', marginTop: '4px' }}>
+                {CATEGORY_PRESETS.map((cat) => (
+                  <button
+                    type="button"
+                    key={cat}
+                    onClick={() => setCategory(cat)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: '99px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      border: category === cat ? '1px solid var(--color-primary)' : '1px solid var(--border-color)',
+                      background: category === cat ? 'var(--color-primary-light)' : '#ffffff',
+                      color: category === cat ? 'var(--color-primary)' : 'var(--text-muted)',
+                    }}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Toggle Barang Timbangan / Curah */}

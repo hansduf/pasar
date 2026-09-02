@@ -47,6 +47,7 @@ export interface Cart {
   id: string;
   name: string;
   notes?: string;
+  status?: 'DRAFT' | 'PAID_PREPARING' | 'COMPLETED';
   items: CartItem[];
 }
 

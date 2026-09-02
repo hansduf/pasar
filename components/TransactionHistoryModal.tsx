@@ -108,7 +108,12 @@ export default function TransactionHistoryModal({
                         <div style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-main)' }}>
                           {tx.customer_name || 'Pelanggan Umum'}
                         </div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {tx.notes && (
+                          <div style={{ fontSize: '11px', color: '#d97706', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>📝 Catatan Nota:</span> {tx.notes}
+                          </div>
+                        )}
+                        <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
                           <ShoppingBag size={12} /> {itemCount} jenis barang
                           {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </div>

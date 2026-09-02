@@ -14,6 +14,7 @@ interface MultiCartDrawerProps {
   onOpenEditWeight: (item: CartItem) => void;
   onSwapChangeForProduct: (cartId: string, changeAmount: number) => void;
   onRenameCart: (cartId: string, newName: string) => void;
+  onTogglePreparingStatus?: (cartId: string, isPreparing: boolean) => void;
   onCheckout: (cashReceived: number, changeAmount: number) => void;
 }
 
@@ -27,6 +28,7 @@ export default function MultiCartDrawer({
   onOpenEditWeight,
   onSwapChangeForProduct,
   onRenameCart,
+  onTogglePreparingStatus,
   onCheckout,
 }: MultiCartDrawerProps) {
   if (!isOpen) return null;
@@ -61,9 +63,46 @@ export default function MultiCartDrawer({
     onCheckout(cashReceived, changeAmount);
   };
 
+  const isPaidPreparing = cart.status === 'PAID_PREPARING';
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" style={{ maxHeight: '95vh' }} onClick={(e) => e.stopPropagation()}>
+        {/* Status Notification Banner if Paid/Preparing */}
+        {isPaidPreparing && (
+          <div
+            style={{
+              background: '#059669',
+              color: '#ffffff',
+              padding: '10px 14px',
+              borderRadius: '10px 10px 0 0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '12px',
+              fontWeight: 800,
+            }}
+          >
+            <span>🟢 SUDAH DIBAYAR — Barang Sedang Disiapkan</span>
+            <button
+              type="button"
+              onClick={() => onTogglePreparingStatus?.(cart.id, false)}
+              style={{
+                background: '#ffffff',
+                color: '#059669',
+                border: 'none',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                fontSize: '11px',
+                fontWeight: 800,
+                cursor: 'pointer',
+              }}
+            >
+              ✅ Tandai Selesai Diambil
+            </button>
+          </div>
+        )}
+
         {/* Cart Header */}
         <div className="modal-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -92,9 +131,29 @@ export default function MultiCartDrawer({
               )}
             </div>
           </div>
-          <button className="modal-close-btn" onClick={onClose}>
-            <X size={24} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {cart.items.length > 0 && !isPaidPreparing && (
+              <button
+                type="button"
+                onClick={() => onTogglePreparingStatus?.(cart.id, true)}
+                style={{
+                  background: '#fef3c7',
+                  color: '#b45309',
+                  border: '1px solid #fde68a',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                ⏳ Tandai Disiapkan
+              </button>
+            )}
+            <button className="modal-close-btn" onClick={onClose}>
+              <X size={24} />
+            </button>
+          </div>
         </div>
 
         {/* Cart Items List */}

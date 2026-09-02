@@ -502,9 +502,9 @@ export default function POSDashboard() {
     setTransactions([newTx, ...transactions]);
     setLatestTransaction(newTx);
 
-    // Clear active cart items & notes
+    // Mark active cart status as PAID_PREPARING (Green Tab) so staff can track goods preparation
     setCarts((prev) =>
-      prev.map((c) => (c.id === activeCartId ? { ...c, items: [], notes: '' } : c))
+      prev.map((c) => (c.id === activeCartId ? { ...c, status: 'PAID_PREPARING' } : c))
     );
 
     setIsCartDrawerOpen(false);
@@ -531,6 +531,19 @@ export default function POSDashboard() {
     return matchesSearch && matchesCategory;
   });
 
+  const handleTogglePreparingStatus = (cartId: string, isPreparing: boolean) => {
+    setCarts((prev) =>
+      prev.map((c) => {
+        if (c.id !== cartId) return c;
+        if (!isPreparing) {
+          // Reset cart when order completed & picked up
+          return { ...c, status: 'COMPLETED', items: [], notes: '' };
+        }
+        return { ...c, status: 'PAID_PREPARING' };
+      })
+    );
+  };
+
   // Feature: Re-print receipt
   const handleReprintReceipt = (tx: Transaction) => {
     setLatestTransaction(tx);
@@ -545,7 +558,7 @@ export default function POSDashboard() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Store size={24} color="var(--color-primary)" />
             <div>
-              <h1 style={{ fontSize: '16px', fontWeight: '900', lineHeight: 1.1 }}>TOKO PASAR POS</h1>
+              <h1 style={{ fontSize: '16px', fontWeight: '900', lineHeight: 1.1 }}>TOKO BU GIANTO</h1>
               <span
                 style={{
                   fontSize: '10px',
@@ -636,15 +649,45 @@ export default function POSDashboard() {
               {carts.map((cart) => {
                 const count = cart.items.reduce((s, i) => s + i.qty, 0);
                 const isSelected = activeCartId === cart.id;
+                const isPaidPreparing = cart.status === 'PAID_PREPARING';
+
+                let tabBg = '#ffffff';
+                let tabColor = 'var(--text-main)';
+                let tabBorder = '1px solid var(--border-color)';
+
+                if (isSelected) {
+                  tabBg = 'var(--color-primary)';
+                  tabColor = '#ffffff';
+                  tabBorder = '1px solid var(--color-primary)';
+                } else if (isPaidPreparing) {
+                  tabBg = '#059669';
+                  tabColor = '#ffffff';
+                  tabBorder = '1px solid #047857';
+                }
+
                 return (
                   <div
                     key={cart.id}
                     onClick={() => setActiveCartId(cart.id)}
                     className={`tab-btn ${isSelected ? 'active' : ''}`}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: tabBg,
+                      color: tabColor,
+                      border: tabBorder,
+                    }}
                   >
-                    <span>{cart.name}</span>
-                    {count > 0 && <span className="badge-count">{count}</span>}
+                    <span>{isPaidPreparing ? `🟢 ${cart.name} (Disiapkan)` : cart.name}</span>
+                    {count > 0 && (
+                      <span
+                        className="badge-count"
+                        style={isPaidPreparing && !isSelected ? { background: '#ffffff', color: '#059669' } : {}}
+                      >
+                        {count}
+                      </span>
+                    )}
                     {carts.length > 1 && (
                       <span
                         onClick={(e) => {
@@ -991,6 +1034,7 @@ export default function POSDashboard() {
         onOpenEditWeight={handleEditWeightFromCart}
         onSwapChangeForProduct={handleSwapChangeForProduct}
         onRenameCart={handleRenameCart}
+        onTogglePreparingStatus={handleTogglePreparingStatus}
         onCheckout={handleCheckout}
       />
 

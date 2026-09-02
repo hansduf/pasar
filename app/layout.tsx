@@ -2,13 +2,13 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Pasar POS - Kasir Pasar Multi-Satuan & Multi-Nota',
-  description: 'Aplikasi Kasir POS Pasar Tradisional & Grosir dengan Katalog Foto, Multi-Satuan, Timbangan, dan Multi-Nota Active.',
+  title: 'Toko Bu Gianto - Kasir Pasar Multi-Satuan & Multi-Nota',
+  description: 'Aplikasi Kasir POS Pasar Tradisional & Grosir Toko Bu Gianto dengan Katalog Foto, Multi-Satuan, Timbangan, dan Multi-Nota Active.',
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Pasar POS',
+    title: 'Toko Bu Gianto',
   },
   formatDetection: {
     telephone: false,

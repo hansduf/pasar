@@ -61,7 +61,7 @@ export default function ReceiptModal({
         <div className="web-receipt-card">
           <div className="web-receipt-header">
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', color: 'var(--color-primary)', fontWeight: '800', fontSize: '18px' }}>
-              <Store size={22} /> TOKO PASAR GROSIR
+              <Store size={22} /> TOKO BU GIANTO
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
               No. Nota: <strong>{transaction.transaction_no}</strong>
